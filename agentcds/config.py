@@ -8,7 +8,17 @@ load_dotenv()
 
 HF_TOKEN   = os.getenv("HF_TOKEN")
 LLM_MODEL  = os.getenv("LLM_MODEL", "BioMistral/BioMistral-7B")
-PUBMED_KEY = os.getenv("PUBMED_KEY")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+PUBMED_KEY = (os.getenv("PUBMED_KEY") or "").strip() or None
+
+# LLM backend selection
+# local: run model via transformers on this machine
+# openai: call OpenAI Chat Completions API
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "local")
+
+# OpenAI settings (used when LLM_PROVIDER=openai)
+OPENAI_API_KEY = (os.getenv("OPENAI_API_KEY") or "").strip() or None
+OPENAI_BASE_URL = (os.getenv("OPENAI_BASE_URL") or "").strip() or None
 
 # RAG settings
 TOP_K              = 6      # chunks retrieved per hypothesis

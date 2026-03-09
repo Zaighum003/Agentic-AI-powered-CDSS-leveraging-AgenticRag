@@ -5,18 +5,37 @@ Collections:
   guidelines   — Clinical practice guidelines (load once, persists)
   cache        — PubMed abstracts fetched during sessions (ephemeral)
 """
-import chromadb
 import hashlib
-from sentence_transformers import SentenceTransformer
+import os
+from pathlib import Path
+from openai import OpenAI
 from agentcds import config
 
-# Medical-domain embedding model (loads once on first use)
-_embedder = None
-def get_embedder():
-    global _embedder
-    if _embedder is None:
-        _embedder = SentenceTransformer("pritamdeka/S-PubMedBert-MS-MARCO")
-    return _embedder
+
+# ChromaDB reads ".env" during import via pydantic Settings.
+# Temporarily import it from this package directory (which has no .env)
+# so project-level app keys don't get treated as Chroma settings.
+_ORIG_CWD = os.getcwd()
+try:
+    os.chdir(Path(__file__).resolve().parent)
+    import chromadb
+finally:
+    os.chdir(_ORIG_CWD)
+
+_openai_client = None
+
+
+def _get_client() -> OpenAI:
+    global _openai_client
+    if _openai_client is None:
+        base_url = (config.OPENAI_BASE_URL or "").strip() or "https://api.openai.com/v1"
+        _openai_client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=base_url)
+    return _openai_client
+
+
+def _embed(texts: list[str]) -> list[list[float]]:
+    response = _get_client().embeddings.create(input=texts, model=config.EMBEDDING_MODEL)
+    return [item.embedding for item in response.data]
 
 
 _db     = chromadb.Client()  # in-memory; pass PersistentClient(path=...) for persistence
@@ -28,7 +47,7 @@ _cols   = {
 
 def add(collection: str, texts: list[str], metas: list[dict] = None):
     """Embed and store documents in a collection."""
-    embs = get_embedder().encode(texts).tolist()
+    embs = _embed(texts)
     ids  = [hashlib.md5(t.encode()).hexdigest()[:16] for t in texts]
     metas = metas or [{} for _ in texts]
     _cols[collection].upsert(embeddings=embs, documents=texts, metadatas=metas, ids=ids)
@@ -44,7 +63,7 @@ def search(collection: str, query: str, k: int = None) -> list[dict]:
     if col.count() == 0:
         return []
 
-    emb = get_embedder().encode([query]).tolist()
+    emb = _embed([query])
     res = col.query(
         query_embeddings=emb,
         n_results=min(k, col.count()),

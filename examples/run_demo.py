@@ -18,11 +18,30 @@ from agentcds.agents.orchestrator import diagnose
 from agentcds.schemas import Patient, LabResult
 
 
+def _tool_result_text(result) -> str:
+    """Extract text payload from FastMCP call_tool result across API versions."""
+    if result is None:
+        return ""
+
+    # FastMCP/MCP result object shape: CallToolResult(content=[TextContent(...)])
+    content = getattr(result, "content", None)
+    if content:
+        first = content[0]
+        return first.text if hasattr(first, "text") else str(first)
+
+    # Older list-like shape used by earlier examples.
+    if isinstance(result, (list, tuple)) and result:
+        first = result[0]
+        return first.text if hasattr(first, "text") else str(first)
+
+    return result.text if hasattr(result, "text") else str(result)
+
+
 async def load_patient_from_mcp(patient_id: str) -> dict:
     """Load patient data via FHIR MCP tool."""
     async with Client(fhir_mcp) as client:
         result = await client.call_tool("get_patient", {"patient_id": patient_id})
-    return json.loads(result[0].text)
+    return json.loads(_tool_result_text(result))
 
 
 def dict_to_patient(data: dict) -> Patient:
@@ -52,7 +71,7 @@ def dict_to_patient(data: dict) -> Patient:
 
 if __name__ == "__main__":
     print("Loading patient via FHIR MCP...")
-    patient_data = asyncio.run(load_patient_from_mcp("DEMO-001"))
+    patient_data = asyncio.run(load_patient_from_mcp("DEMO-002"))
 
     if "error" in patient_data:
         print(patient_data["error"])

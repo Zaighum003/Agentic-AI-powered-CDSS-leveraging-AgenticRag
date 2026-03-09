@@ -11,7 +11,21 @@ with FastMCP 2.0 clinical knowledge integrations.
 
 ```bash
 pip install -e .
-cp .env.example .env    # add HF_TOKEN
+cp .env.example .env
+```
+
+Choose an LLM backend in `.env`:
+
+```env
+# Option 1: local transformers model (default)
+LLM_PROVIDER=local
+LLM_MODEL=TinyLlama/TinyLlama-1.1B-Chat-v1.0
+
+# Option 2: OpenAI API
+LLM_PROVIDER=openai
+OPENAI_API_KEY=<your-openai-key>
+LLM_MODEL=gpt-4o-mini
+# Optional: OPENAI_BASE_URL=https://<your-compatible-endpoint>/v1
 ```
 
 ## Run
@@ -27,7 +41,7 @@ python examples/call_mcp_tools.py   # call MCP tools directly
 agentcds/
 ├── config.py           # settings from .env
 ├── schemas.py          # Patient, Hypothesis, DiagnosticResult dataclasses
-├── llm.py              # HuggingFace Inference API wrapper
+├── llm.py              # LLM backend wrapper (local transformers or OpenAI)
 ├── vector_store.py     # ChromaDB (in-memory)
 ├── rag/
 │   ├── hyde.py         # Hypothetical Document Embeddings retrieval
@@ -62,8 +76,11 @@ python -m agentcds.mcp.fhir      # port 8003
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `LLM_PROVIDER` | `local` | LLM backend (`local` or `openai`) |
 | `HF_TOKEN` | required | HuggingFace API token |
 | `LLM_MODEL` | `BioMistral/BioMistral-7B` | Medical LLM |
+| `OPENAI_API_KEY` | empty | OpenAI API key |
+| `OPENAI_BASE_URL` | empty | Optional OpenAI-compatible API base URL |
 | `PUBMED_KEY` | optional | NCBI key (raises rate limit) |
 
 <p align="center">

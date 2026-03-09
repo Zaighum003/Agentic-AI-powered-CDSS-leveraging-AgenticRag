@@ -66,12 +66,29 @@ Respond with ONLY a JSON array of question strings:
 ["Question 1?", "Question 2?"]"""
 
 
+def _tool_result_text(result) -> str:
+    """Extract text payload from FastMCP call_tool result across API versions."""
+    if result is None:
+        return ""
+
+    content = getattr(result, "content", None)
+    if content:
+        first = content[0]
+        return first.text if hasattr(first, "text") else str(first)
+
+    if isinstance(result, (list, tuple)) and result:
+        first = result[0]
+        return first.text if hasattr(first, "text") else str(first)
+
+    return result.text if hasattr(result, "text") else str(result)
+
+
 async def _call_tool(mcp_server, tool_name: str, params: dict):
     """Call a FastMCP tool in-process and return parsed result."""
     async with Client(mcp_server) as client:
         result = await client.call_tool(tool_name, params)
     if result:
-        text = result[0].text if hasattr(result[0], "text") else str(result[0])
+        text = _tool_result_text(result)
         try:
             return json.loads(text)
         except json.JSONDecodeError:

@@ -69,7 +69,7 @@ def _fetch(query: str, n: int = 5) -> list[dict]:
 
             articles.append({
                 "pmid": pmid, "title": title,
-                "abstract": abstract[:600],
+                "abstract": abstract[:2000],
                 "journal": journal,
                 "year": int(year_str) if year_str and year_str.isdigit() else None,
                 "study_type": study_type,
