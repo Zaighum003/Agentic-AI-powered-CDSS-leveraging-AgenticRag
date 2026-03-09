@@ -78,9 +78,11 @@ def run(patient: Patient, hypotheses: list[Hypothesis]) -> int:
     for iteration in range(config.MAX_RAG_ITERATIONS):
         iterations += 1
         top_conf = max(h.confidence for h in hypotheses)
+        print(f"\n[RAG iteration {iterations}/{config.MAX_RAG_ITERATIONS}]  top_conf={top_conf:.2f}  (stop if ≥{config.CONFIDENCE_HIGH})")
 
         # Stop early if already confident
         if top_conf >= config.CONFIDENCE_HIGH and iteration > 0:
+            print(f"  → Early stop: confidence {top_conf:.2f} ≥ {config.CONFIDENCE_HIGH}")
             break
 
         # Only work on the top 3 hypotheses per iteration (efficiency)
@@ -88,11 +90,50 @@ def run(patient: Patient, hypotheses: list[Hypothesis]) -> int:
         new_evidence_lines = []
 
         for hypothesis in active:
+            conf_before = hypothesis.confidence
+
             # Step 1: HyDE retrieval
             chunks = hyde.retrieve(patient, hypothesis)
+            print(f"    [HyDE]     '{hypothesis.label[:40]}' → {len(chunks)} chunks retrieved")
 
             # Step 2: Self-RAG grading
             graded = self_rag.grade_all(chunks, hypothesis.label, patient.to_text())
+            used    = sum(1 for g in graded if g.action == "use")
+            crag_ct = sum(1 for g in graded if g.action == "crag")
+            discard = sum(1 for g in graded if g.action == "discard")
+            print(f"    [Self-RAG] graded {len(graded)} → use={used}  crag={crag_ct}  discard={discard}")
+
+            # If everything was discarded, fetch fresh PubMed articles and re-retrieve
+            if used == 0 and crag_ct == 0 and iteration < config.MAX_RAG_ITERATIONS - 1:
+                from agentcds.mcp.pubmed import mcp as _pubmed_mcp
+                from agentcds import vector_store as _vs
+                import asyncio as _asyncio
+                import json as _json
+
+                async def _fetch(q):
+                    from fastmcp import Client
+                    async with Client(_pubmed_mcp) as _c:
+                        r = await _c.call_tool("pubmed_search", {"query": q, "n": 4})
+                    raw = r.content[0].text if getattr(r, "content", None) else str(r)
+                    try:
+                        return _json.loads(raw)
+                    except Exception:
+                        return []
+
+                query = f"{hypothesis.label} bone marrow biopsy blood count workup"
+                fresh = _asyncio.run(_fetch(query))
+                for art in fresh:
+                    t = f"[PubMed {art.get('pmid','')}] {art.get('title','')}\n{art.get('abstract','')}"
+                    m = {"source": f"pubmed:{art.get('pmid','')}", "study_type": art.get("study_type","")}
+                    _vs.add("cache", [t], [m])
+                if fresh:
+                    print(f"    [refetch]  added {len(fresh)} fresh PubMed articles for '{hypothesis.label[:30]}'")
+                    chunks = hyde.retrieve(patient, hypothesis)
+                    graded = self_rag.grade_all(chunks, hypothesis.label, patient.to_text())
+                    used    = sum(1 for g in graded if g.action == "use")
+                    crag_ct = sum(1 for g in graded if g.action == "crag")
+                    discard = sum(1 for g in graded if g.action == "discard")
+                    print(f"    [Self-RAG] re-graded → use={used}  crag={crag_ct}  discard={discard}")
 
             for gc in graded:
                 if gc.action == "use" and gc.key_finding:
@@ -110,9 +151,15 @@ def run(patient: Patient, hypotheses: list[Hypothesis]) -> int:
                 # Step 3: CRAG on contradictions
                 elif gc.action == "crag":
                     delta = crag.correct(gc, hypothesis, patient.to_text())
+                    print(f"    [CRAG]     contradiction resolved  delta={delta:+.2f}")
                     hypothesis.adjust(delta)
+
+            print(f"    [conf]     {hypothesis.label[:40]}: {conf_before:.2f} → {hypothesis.confidence:.2f}")
 
         # Step 4: LLM updates all confidences based on accumulated evidence
         _update_confidences(hypotheses, new_evidence_lines, patient.to_text())
+        print(f"  ── after LLM update {'─'*30}")
+        for h in sorted(hypotheses, key=lambda h: h.confidence, reverse=True)[:3]:
+            print(f"    {h.confidence:.2f}  {h.label}")
 
     return iterations

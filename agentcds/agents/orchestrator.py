@@ -133,16 +133,28 @@ def _augment_with_pubmed(hypotheses: list[Hypothesis]) -> None:
     This seeds the vector store before the main RAG loop.
     """
     from agentcds import vector_store
-    top = sorted(hypotheses, key=lambda h: h.confidence, reverse=True)[:2]
+    top = sorted(hypotheses, key=lambda h: h.confidence, reverse=True)[:3]
+    queries_per_hypothesis = [
+        "{label} diagnosis clinical criteria",
+        "{label} pathophysiology laboratory findings",
+    ]
+    print("\n[MCP:PubMed] Seeding vector store — fetching articles for top hypotheses...")
+    total_seeded = 0
     for h in top:
-        articles = _call(pubmed_mcp, "pubmed_search", {
-            "query": f"{h.label} diagnosis clinical criteria",
-            "n": 3,
-        }) or []
-        for art in articles:
-            text = f"[PubMed {art.get('pmid','')}] {art.get('title','')}\n{art.get('abstract','')}"
-            meta = {"source": f"pubmed:{art.get('pmid','')}", "study_type": art.get("study_type","")}
-            vector_store.add("cache", [text], [meta])
+        for query_tpl in queries_per_hypothesis:
+            query = query_tpl.format(label=h.label)
+            articles = _call(pubmed_mcp, "pubmed_search", {
+                "query": query,
+                "n": 4,
+            }) or []
+            print(f"  query: '{query}' → {len(articles)} article(s)")
+            for art in articles:
+                print(f"    [{art.get('study_type','?')}] PMID:{art.get('pmid','')} — {art.get('title','')[:80]}")
+                text = f"[PubMed {art.get('pmid','')}] {art.get('title','')}\n{art.get('abstract','')}"
+                meta = {"source": f"pubmed:{art.get('pmid','')}", "study_type": art.get("study_type","")}
+                vector_store.add("cache", [text], [meta])
+                total_seeded += 1
+    print(f"[MCP:PubMed] Done — {total_seeded} article(s) seeded into vector store\n")
 
 
 def _drug_safety_check(patient: Patient) -> list[str]:
@@ -150,6 +162,16 @@ def _drug_safety_check(patient: Patient) -> list[str]:
     if len(patient.medications) < 2:
         return []
     drug_names = [m.split()[0] for m in patient.medications]  # first word = drug name
+    print(f"[MCP:RxNorm] Checking interactions for: {', '.join(drug_names)}")
+    interactions = _call(rxnorm_mcp, "check_interactions", {"drug_names": drug_names}) or []
+    if interactions and isinstance(interactions, list):
+        for ix in interactions:
+            if isinstance(ix, dict):
+                print(f"  ⚠ [{ix.get('severity','?').upper()}] {ix.get('drug_1')} + {ix.get('drug_2')}: {ix.get('description','')[:100]}")
+            else:
+                print(f"  ⚠ {ix}")
+    else:
+        print("  ✓ No significant interactions found")
     summary = _call(rxnorm_mcp, "interaction_summary", {"drug_names": drug_names})
     if isinstance(summary, str) and "No significant" not in summary:
         return [summary]

@@ -71,7 +71,7 @@ def dict_to_patient(data: dict) -> Patient:
 
 if __name__ == "__main__":
     print("Loading patient via FHIR MCP...")
-    patient_data = asyncio.run(load_patient_from_mcp("DEMO-002"))
+    patient_data = asyncio.run(load_patient_from_mcp("DEMO-001"))
 
     if "error" in patient_data:
         print(patient_data["error"])

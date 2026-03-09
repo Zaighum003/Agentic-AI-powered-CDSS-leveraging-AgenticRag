@@ -23,7 +23,7 @@ OPENAI_BASE_URL = (os.getenv("OPENAI_BASE_URL") or "").strip() or None
 # RAG settings
 TOP_K              = 6      # chunks retrieved per hypothesis
 MAX_RAG_ITERATIONS = 3      # max agentic loop iterations
-RELEVANCE_CUTOFF   = 0.55   # Self-RAG: discard below this relevance
+RELEVANCE_CUTOFF   = 0.40   # Self-RAG: discard below this relevance
 CRAG_THRESHOLD     = 0.70   # Self-RAG: trigger CRAG above this when contradicting
 CONFIDENCE_HIGH    = 0.75   # stop looping, confident enough
 CONFIDENCE_LOW     = 0.40   # trigger clarification questions
