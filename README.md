@@ -2,7 +2,7 @@
   <img src="logo_cdss.jpg" alt="Project Logo" width="200">
 </p>
 
-# AgentCDS — Academic Research Project
+# AgentCDS 
 
 Agentic Clinical Decision Support using HyDE + Self-RAG + CRAG
 with FastMCP 2.0 clinical knowledge integrations.
