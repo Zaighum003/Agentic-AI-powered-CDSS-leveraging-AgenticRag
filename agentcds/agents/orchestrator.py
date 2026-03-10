@@ -19,8 +19,9 @@ from fastmcp import Client
 from agentcds import llm, config
 from agentcds.schemas import Patient, Hypothesis, DiagnosticResult
 from agentcds.rag import pipeline
-from agentcds.mcp.pubmed  import mcp as pubmed_mcp
-from agentcds.mcp.rxnorm  import mcp as rxnorm_mcp
+from agentcds.mcp.pubmed      import mcp as pubmed_mcp
+from agentcds.mcp.rxnorm      import mcp as rxnorm_mcp
+from agentcds.mcp.web_search  import mcp as websearch_mcp
 
 
 DIFFERENTIAL_PROMPT = r"""You are a clinical attending physician.
@@ -157,6 +158,31 @@ def _augment_with_pubmed(hypotheses: list[Hypothesis]) -> None:
     print(f"[MCP:PubMed] Done — {total_seeded} article(s) seeded into vector store\n")
 
 
+def _augment_with_web(hypotheses: list[Hypothesis]) -> None:
+    """
+    Supplement the vector store with medical web results for top hypotheses.
+    Called after PubMed seeding as an additional evidence source.
+    """
+    from agentcds import vector_store
+    top = sorted(hypotheses, key=lambda h: h.confidence, reverse=True)[:3]
+    print("\n[MCP:WebSearch] Fetching medical web results for top hypotheses...")
+    total_seeded = 0
+    for h in top:
+        query = f"{h.label} diagnosis management clinical guidelines"
+        results = _call(websearch_mcp, "web_search_medical", {"query": query, "n": 4}) or []
+        print(f"  query: '{query}' → {len(results)} result(s)")
+        for r in results:
+            if not r.get("snippet"):
+                continue
+            print(f"    {r.get('title','')[:80]}")
+            print(f"    {r.get('url','')}")
+            text = f"[Web] {r.get('title','')}\n{r.get('snippet','')}"
+            meta = {"source": r.get("url", ""), "type": "web"}
+            vector_store.add("cache", [text], [meta])
+            total_seeded += 1
+    print(f"[MCP:WebSearch] Done — {total_seeded} web snippet(s) seeded into vector store\n")
+
+
 def _drug_safety_check(patient: Patient) -> list[str]:
     """Check drug interactions via RxNorm MCP. Returns list of warning strings."""
     if len(patient.medications) < 2:
@@ -240,6 +266,9 @@ def diagnose(patient: Patient) -> DiagnosticResult:
 
     # 2. Seed vector store with PubMed articles for top hypotheses
     _augment_with_pubmed(hypotheses)
+
+    # 2b. Supplement with medical web results
+    _augment_with_web(hypotheses)
 
     # 3. Agentic RAG loop (HyDE → Self-RAG → CRAG → confidence update)
     iterations = pipeline.run(patient, hypotheses)

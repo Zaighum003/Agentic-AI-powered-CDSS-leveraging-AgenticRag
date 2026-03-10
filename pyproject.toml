@@ -18,6 +18,7 @@ dependencies = [
     "httpx>=0.26",
     "fastmcp>=2.0",
     "openai>=1.40.0",
+    "ddgs>=0.1",
 ]
 
 [tool.setuptools.packages.find]
