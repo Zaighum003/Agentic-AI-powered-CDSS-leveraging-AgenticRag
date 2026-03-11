@@ -1,7 +1,22 @@
+# Secrets
 .env
 .env.local
+
+# Python
 *.pyc
+*.pyo
 __pycache__/
 .venv/
 *.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+
+# Temp demo output files
+demo*.txt
+*.out.txt
 
