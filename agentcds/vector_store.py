@@ -34,7 +34,9 @@ def _get_client() -> OpenAI:
 
 
 def _embed(texts: list[str]) -> list[list[float]]:
-    response = _get_client().embeddings.create(input=texts, model=config.EMBEDDING_MODEL)
+    # OpenAI rejects empty strings — replace with a single dot as a safe placeholder.
+    cleaned = [t if t and t.strip() else "." for t in texts]
+    response = _get_client().embeddings.create(input=cleaned, model=config.EMBEDDING_MODEL)
     return [item.embedding for item in response.data]
 
 

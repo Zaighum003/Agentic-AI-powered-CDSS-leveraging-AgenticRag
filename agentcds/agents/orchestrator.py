@@ -10,6 +10,7 @@ Session flow:
   4. Generate clarification questions if still uncertain
   5. Build and return DiagnosticResult
 """
+
 import asyncio
 import json
 import re
@@ -74,8 +75,11 @@ def _tool_result_text(result) -> str:
 
     content = getattr(result, "content", None)
     if content:
-        first = content[0]
-        return first.text if hasattr(first, "text") else str(first)
+        # Aggregate ALL content chunks (large MCP results may be split)
+        parts = []
+        for chunk in content:
+            parts.append(chunk.text if hasattr(chunk, "text") else str(chunk))
+        return "".join(parts)
 
     if isinstance(result, (list, tuple)) and result:
         first = result[0]
@@ -148,8 +152,14 @@ def _augment_with_pubmed(hypotheses: list[Hypothesis]) -> None:
                 "query": query,
                 "n": 4,
             }) or []
+            # Guard against non-list response (e.g. raw string from failed JSON parse)
+            if not isinstance(articles, list):
+                print(f"  [PubMed] skipped '{query}' — unexpected response type")
+                continue
             print(f"  query: '{query}' → {len(articles)} article(s)")
             for art in articles:
+                if not isinstance(art, dict):
+                    continue
                 print(f"    [{art.get('study_type','?')}] PMID:{art.get('pmid','')} — {art.get('title','')[:80]}")
                 text = f"[PubMed {art.get('pmid','')}] {art.get('title','')}\n{art.get('abstract','')}"
                 meta = {"source": f"pubmed:{art.get('pmid','')}", "study_type": art.get("study_type","")}
@@ -169,10 +179,17 @@ def _augment_with_web(hypotheses: list[Hypothesis]) -> None:
     total_seeded = 0
     for h in top:
         query = f"{h.label} diagnosis management clinical guidelines"
-        results = _call(websearch_mcp, "web_search_medical", {"query": query, "n": 4}) or []
+        try:
+            results = _call(websearch_mcp, "web_search_medical", {"query": query, "n": 4}) or []
+        except Exception as exc:
+            print(f"  [WebSearch] error for '{query}': {exc}")
+            continue
+        if not isinstance(results, list):
+            print(f"  [WebSearch] skipped '{query}' — unexpected response type")
+            continue
         print(f"  query: '{query}' → {len(results)} result(s)")
         for r in results:
-            if not r.get("snippet"):
+            if not isinstance(r, dict) or not r.get("snippet"):
                 continue
             print(f"    {r.get('title','')[:80]}")
             print(f"    {r.get('url','')}")
@@ -190,18 +207,28 @@ def _drug_safety_check(patient: Patient) -> list[str]:
     drug_names = [m.split()[0] for m in patient.medications]  # first word = drug name
     print(f"[MCP:RxNorm] Checking interactions for: {', '.join(drug_names)}")
     interactions = _call(rxnorm_mcp, "check_interactions", {"drug_names": drug_names}) or []
+
+    warnings = []
     if interactions and isinstance(interactions, list):
+        # Sort by severity: major first
+        severity_order = {"major": 0, "moderate": 1, "minor": 2}
+        interactions = sorted(interactions, key=lambda x: severity_order.get(x.get("severity", "").lower(), 3))
         for ix in interactions:
             if isinstance(ix, dict):
-                print(f"  ⚠ [{ix.get('severity','?').upper()}] {ix.get('drug_1')} + {ix.get('drug_2')}: {ix.get('description','')[:100]}")
+                sev  = ix.get('severity', 'unknown').upper()
+                d1   = ix.get('drug_1', '?')
+                d2   = ix.get('drug_2', '?')
+                desc = ix.get('description', '')[:120]
+                msg  = f"[{sev}] {d1} + {d2}: {desc}"
+                print(f"  ⚠ {msg}")
+                warnings.append(msg)
             else:
                 print(f"  ⚠ {ix}")
+                warnings.append(str(ix))
     else:
         print("  ✓ No significant interactions found")
-    summary = _call(rxnorm_mcp, "interaction_summary", {"drug_names": drug_names})
-    if isinstance(summary, str) and "No significant" not in summary:
-        return [summary]
-    return []
+
+    return warnings
 
 
 def _synthesis(patient: Patient, hypotheses: list[Hypothesis]) -> tuple[list[str], list[str]]:
@@ -211,7 +238,7 @@ def _synthesis(patient: Patient, hypotheses: list[Hypothesis]) -> tuple[list[str
         for h in sorted(hypotheses, key=lambda h: h.confidence, reverse=True)[:5]
     )
     prompt = SYNTHESIS_PROMPT.format(patient=patient.to_text()[:500], differential=diff_str)
-    raw = llm.ask_json(prompt, max_tokens=300)
+    raw = llm.ask_json(prompt, max_tokens=600)
 
     next_steps, safety = [], []
     try:
@@ -220,8 +247,13 @@ def _synthesis(patient: Patient, hypotheses: list[Hypothesis]) -> tuple[list[str
             data = json.loads(match.group())
             next_steps = data.get("next_steps", [])
             safety     = data.get("safety", [])
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         pass
+
+    if next_steps:
+        print(f"[Synthesis] {len(next_steps)} next step(s) generated")
+    else:
+        print(f"[Synthesis] WARNING — could not parse next steps (raw={raw[:120]!r})")
 
     return next_steps, safety
 

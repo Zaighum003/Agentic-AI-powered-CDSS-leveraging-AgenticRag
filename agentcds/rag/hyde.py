@@ -30,4 +30,7 @@ def retrieve(patient: Patient, hypothesis: Hypothesis, k: int = None) -> list[di
     """
     prompt   = PROMPT.format(diagnosis=hypothesis.label)
     hypo_doc = llm.ask(prompt, max_tokens=300, temperature=0.2)
+    # Fallback if LLM returns empty (avoids empty-string embedding error)
+    if not hypo_doc or not hypo_doc.strip():
+        hypo_doc = f"{hypothesis.label} clinical features diagnosis laboratory management"
     return vector_store.search_all(hypo_doc, k=k)

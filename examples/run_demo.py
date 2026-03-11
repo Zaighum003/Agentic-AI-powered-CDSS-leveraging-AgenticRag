@@ -6,12 +6,30 @@ Run a full diagnostic session on a mock patient.
 Setup:
   1. pip install -e .
   2. cp .env.example .env  # add your HF_TOKEN
-  3. python examples/run_demo.py
+  3. python examples/run_demo.py [PATIENT_ID]
 
-To try the post-partum PE case: change patient_id to "DEMO-002"
+Available patients:
+  DEMO-001  54yo M — Pancytopenia / fatigue / bruising  (MDS workup)
+  DEMO-002  32yo F — Pleuritic chest pain / leg swelling (post-partum PE)
+  DEMO-003  62yo M — Tearing chest pain radiating to back (dissection vs MI)
+  DEMO-004  19yo F — Vomiting / confusion / fruity breath (DKA / HHS)
+  DEMO-009  58yo M — Crushing chest pain + left arm + sweating  ★ LAYMAN-FRIENDLY (classic heart attack)
+
+Examples:
+  python examples/run_demo.py           # defaults to DEMO-001
+  python examples/run_demo.py DEMO-002
 """
+import argparse
 import asyncio
 import json
+import sys
+
+# Force UTF-8 output on Windows so Unicode arrows/symbols print correctly.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 from fastmcp import Client
 from agentcds.mcp.fhir import mcp as fhir_mcp
 from agentcds.agents.orchestrator import diagnose
@@ -70,8 +88,18 @@ def dict_to_patient(data: dict) -> Patient:
 
 
 if __name__ == "__main__":
-    print("Loading patient via FHIR MCP...")
-    patient_data = asyncio.run(load_patient_from_mcp("DEMO-001"))
+    parser = argparse.ArgumentParser(description="AgentCDS — Clinical Decision Support Demo")
+    parser.add_argument(
+        "patient_id",
+        nargs="?",
+        default="DEMO-001",
+        help="Patient ID to run (DEMO-001 … DEMO-004). Default: DEMO-001",
+    )
+    args = parser.parse_args()
+    patient_id = args.patient_id.upper()
+
+    print(f"Loading patient {patient_id} via FHIR MCP...")
+    patient_data = asyncio.run(load_patient_from_mcp(patient_id))
 
     if "error" in patient_data:
         print(patient_data["error"])

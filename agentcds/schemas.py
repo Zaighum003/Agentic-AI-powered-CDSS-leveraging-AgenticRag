@@ -120,7 +120,8 @@ class DiagnosticResult:
         if self.drug_warnings:
             lines.append("\nDRUG WARNINGS:")
             for w in self.drug_warnings:
-                lines.append(f"  \u26a0 {w}")
+                for wline in str(w).splitlines():
+                    lines.append(f"  \u26a0 {wline}")
         if self.clarifications:
             lines.append("\nCLARIFICATION NEEDED:")
             for q in self.clarifications:

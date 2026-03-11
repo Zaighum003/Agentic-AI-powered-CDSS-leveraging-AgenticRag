@@ -87,10 +87,10 @@ def run(patient: Patient, hypotheses: list[Hypothesis]) -> int:
 
         # Only work on the top 3 hypotheses per iteration (efficiency)
         active = sorted(hypotheses, key=lambda h: h.confidence, reverse=True)[:3]
+        conf_before_map = {h.label: h.confidence for h in active}
         new_evidence_lines = []
 
         for hypothesis in active:
-            conf_before = hypothesis.confidence
 
             # Step 1: HyDE retrieval
             chunks = hyde.retrieve(patient, hypothesis)
@@ -154,12 +154,12 @@ def run(patient: Patient, hypotheses: list[Hypothesis]) -> int:
                     print(f"    [CRAG]     contradiction resolved  delta={delta:+.2f}")
                     hypothesis.adjust(delta)
 
-            print(f"    [conf]     {hypothesis.label[:40]}: {conf_before:.2f} → {hypothesis.confidence:.2f}")
-
         # Step 4: LLM updates all confidences based on accumulated evidence
         _update_confidences(hypotheses, new_evidence_lines, patient.to_text())
-        print(f"  ── after LLM update {'─'*30}")
+        print(f"  ── confidence update {'─'*30}")
         for h in sorted(hypotheses, key=lambda h: h.confidence, reverse=True)[:3]:
-            print(f"    {h.confidence:.2f}  {h.label}")
+            before = conf_before_map.get(h.label, h.confidence)
+            arrow = f"{before:.2f} → {h.confidence:.2f}" if abs(h.confidence - before) > 0.001 else f"{h.confidence:.2f} (unchanged)"
+            print(f"    {arrow}  {h.label}")
 
     return iterations

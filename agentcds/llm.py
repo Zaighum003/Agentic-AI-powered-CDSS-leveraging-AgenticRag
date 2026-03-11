@@ -56,12 +56,21 @@ def _get_openai_client():
 def _ask_openai(prompt: str, max_tokens: int = 512, temperature: float = 0.1) -> str:
     """Generate with OpenAI Chat Completions API."""
     client = _get_openai_client()
-    response = client.chat.completions.create(
-        model=config.LLM_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=max(temperature, 0.01),
+    model = config.LLM_MODEL
+    # o1/o3/o4 and gpt-5.x are reasoning/new-gen models: use max_completion_tokens
+    # and skip temperature (not supported or ignored).
+    reasoning_or_new = (
+        any(model.startswith(p) for p in ("o1", "o3", "o4"))
+        or model.startswith("gpt-5")
     )
+    kwargs = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_completion_tokens": max_tokens,
+    }
+    if not reasoning_or_new:
+        kwargs["temperature"] = max(temperature, 0.01)
+    response = client.chat.completions.create(**kwargs)
     msg = response.choices[0].message.content if response.choices else ""
     return (msg or "").strip()
 

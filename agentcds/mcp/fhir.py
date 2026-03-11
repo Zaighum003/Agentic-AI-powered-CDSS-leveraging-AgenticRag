@@ -161,6 +161,31 @@ MOCK_PATIENTS = {
         imaging=["CXR: Cardiomegaly, bilateral pleural effusions, pulmonary vascular congestion", "ECG: Sinus rhythm, LBBB (known)"],
     ),
 
+    # DEMO-009 (LAYMAN-FRIENDLY): Classic heart attack presentation
+    # Everyone knows heart attacks. Symptoms are familiar from everyday life.
+    # Ideal for non-medical audiences — crushing chest pain, left arm, sweating.
+    "DEMO-009": Patient(
+        patient_id="DEMO-009", age=58, sex="M",
+        complaint="Crushing chest pain spreading to the left arm with sweating — started 40 minutes ago",
+        hpi="58yo male with high blood pressure, diabetes, and high cholesterol. While sitting at his desk at work this morning he felt a sudden crushing pressure in the center of his chest, like 'an elephant sitting on my chest'. The pain spreads down his left arm and up to his jaw. He is drenched in cold sweat and feels extremely nauseous. He took two of his wife's aspirin tablets on the way to the ER. Pain is 9/10, not relieved by rest.",
+        pmh=["High blood pressure (hypertension)", "Type 2 Diabetes", "High cholesterol (hyperlipidemia)", "Smoker — 1 pack per day for 30 years"],
+        medications=["Metformin 1000mg twice daily", "Lisinopril 10mg once daily", "Atorvastatin 40mg at bedtime"],
+        allergies=[],
+        vitals={"HR": 104, "BP": "158/96", "SpO2": "96%", "RR": 20, "Temp": "37.1C"},
+        labs=[
+            LabResult("Troponin-I",  1.8,  "ng/mL",  abnormal=True,  ref_low=0,    ref_high=0.04),
+            LabResult("CK-MB",       28,   "ng/mL",  abnormal=True,  ref_low=0,    ref_high=6.3),
+            LabResult("D-dimer",     0.4,  "µg/mL",  abnormal=False, ref_low=0,    ref_high=0.5),
+            LabResult("Glucose",     218,  "mg/dL",  abnormal=True,  ref_low=70,   ref_high=100),
+            LabResult("Creatinine",  1.1,  "mg/dL",  abnormal=False, ref_low=0.7,  ref_high=1.3),
+            LabResult("Hemoglobin",  14.8, "g/dL",   abnormal=False, ref_low=13.5, ref_high=17.5),
+        ],
+        findings=["Diaphoresis (cold sweating)", "Pallor", "Clutching chest", "Nausea"],
+        absent=["Fever", "Cough", "Leg swelling", "Tearing quality to pain"],
+        imaging=["ECG: ST-segment elevation in leads II, III, aVF and V4–V6 (inferior + lateral STEMI)",
+                 "CXR: Normal heart size, clear lung fields, no pneumothorax"],
+    ),
+
     # DEMO-008: Septic arthritis vs. gout vs. reactive arthritis
     "DEMO-008": Patient(
         patient_id="DEMO-008", age=55, sex="M",
