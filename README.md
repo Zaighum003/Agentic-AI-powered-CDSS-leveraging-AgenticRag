@@ -37,6 +37,22 @@ python examples/call_mcp_tools.py            # call MCP tools directly
 python examples/visualise_graph.py --mermaid # print graph topology (Mermaid)
 ```
 
+## Web Demo (FastAPI + SPA)
+
+```bash
+python examples/run_web_demo.py
+```
+
+Open `http://127.0.0.1:8000` in your browser.
+
+Web API endpoints:
+
+- `GET /api/health`
+- `GET /api/patients`
+- `GET /api/patients/{patient_id}`
+- `POST /api/diagnose`
+- `WS /ws/diagnose` (live status + logs + final result)
+
 ## Project Structure
 
 ```
@@ -60,6 +76,9 @@ agentcds/
 │   ├── rxnorm.py       # FastMCP 2.0 server — NLM RxNorm drug interactions
 │   ├── web_search.py   # FastMCP 2.0 server — web evidence search
 │   └── fhir.py         # FastMCP 2.0 server — patient data (mock + live)
+├── web/
+│   ├── app.py          # FastAPI server + REST/WebSocket endpoints
+│   └── static/         # Single-page frontend (Stitch-based)
 └── __init__.py
 ```
 

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AgentCDS Web Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Material+Symbols+Outlined:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">AgentCDS</div>
+    <div class="session-pill" id="sessionStatus">Idle</div>
+  </header>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <button class="new-run" id="newRunBtn">New Diagnosis</button>
+      <nav>
+        <button class="nav-item active" data-view="intake">Patient Intake</button>
+        <button class="nav-item" data-view="running">Diagnosis Running</button>
+        <button class="nav-item" data-view="result">Results</button>
+      </nav>
+      <div class="sidebar-foot">Agentic Clinical Decision Support</div>
+    </aside>
+
+    <main class="main-panel">
+      <section class="view active" id="view-intake">
+        <div class="grid intake-grid">
+          <article class="panel">
+            <h2>Load Demo Patient</h2>
+            <div class="row">
+              <select id="demoSelect"></select>
+              <button id="loadDemoBtn">Load</button>
+            </div>
+            <p class="muted">Built-in FHIR mock cases from the backend.</p>
+          </article>
+
+          <article class="panel">
+            <h2>Paste Patient JSON</h2>
+            <textarea id="patientJson" placeholder='{"patient_id":"CUSTOM-001", "age":54, "sex":"M", "complaint":"..."}'></textarea>
+            <div class="row">
+              <button id="parseJsonBtn" class="ghost">Parse JSON</button>
+              <button id="runBtn" class="primary">Run Diagnosis</button>
+            </div>
+          </article>
+        </div>
+
+        <article class="panel patient-card" id="patientCard">
+          <h2>Awaiting Patient Data</h2>
+          <p class="muted">Load a demo patient or parse JSON to continue.</p>
+        </article>
+      </section>
+
+      <section class="view" id="view-running">
+        <article class="panel progress-wrap">
+          <div class="row split">
+            <h2>Diagnosis Running</h2>
+            <strong id="progressPct">0%</strong>
+          </div>
+          <div class="bar"><div id="progressBar"></div></div>
+          <p class="mono" id="phaseLabel">Waiting to start...</p>
+        </article>
+
+        <div class="grid running-grid">
+          <article class="panel">
+            <h2>System Operations</h2>
+            <ul id="opsChecklist" class="checklist"></ul>
+          </article>
+          <article class="panel">
+            <h2>Live Agent Log</h2>
+            <div id="liveLog" class="logbox"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-result">
+        <div class="grid result-grid">
+          <article class="panel" id="resultSummary"></article>
+          <article class="panel">
+            <h2>Differential Diagnosis</h2>
+            <div id="differentialList" class="stack"></div>
+          </article>
+          <article class="panel">
+            <h2>Next Steps</h2>
+            <ol id="nextSteps"></ol>
+            <h3>Drug Warnings</h3>
+            <ul id="warnings" class="warnings"></ul>
+            <h3>Clarification Needed</h3>
+            <ul id="clarifications"></ul>
+          </article>
+          <article class="panel wide">
+            <h2>Agent Engine Log</h2>
+            <div id="resultLog" class="logbox"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>
