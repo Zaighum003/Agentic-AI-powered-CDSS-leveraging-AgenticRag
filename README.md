@@ -31,8 +31,10 @@ LLM_MODEL=gpt-4o-mini
 ## Run
 
 ```bash
-python examples/run_demo.py          # full diagnostic session (DEMO-001 pancytopenia)
-python examples/call_mcp_tools.py   # call MCP tools directly
+python examples/run_graph_demo.py            # full LangGraph diagnostic session
+python examples/run_graph_demo.py DEMO-003   # run a specific demo patient
+python examples/call_mcp_tools.py            # call MCP tools directly
+python examples/visualise_graph.py --mermaid # print graph topology (Mermaid)
 ```
 
 ## Project Structure
@@ -43,17 +45,22 @@ agentcds/
 ├── schemas.py          # Patient, Hypothesis, DiagnosticResult dataclasses
 ├── llm.py              # LLM backend wrapper (local transformers or OpenAI)
 ├── vector_store.py     # ChromaDB (in-memory)
+├── graph/
+│   ├── state.py        # LangGraph state schema
+│   ├── agents.py       # specialist clinical agents
+│   ├── nodes.py        # graph node functions
+│   └── graph.py        # compiled LangGraph + diagnose() entrypoint
 ├── rag/
 │   ├── hyde.py         # Hypothetical Document Embeddings retrieval
 │   ├── self_rag.py     # evidence grading (relevance, support, utility)
 │   ├── crag.py         # Corrective RAG on contradictions
-│   └── pipeline.py     # main iterative loop
+│   └── __init__.py
 ├── mcp/
 │   ├── pubmed.py       # FastMCP 2.0 server — NCBI PubMed
 │   ├── rxnorm.py       # FastMCP 2.0 server — NLM RxNorm drug interactions
+│   ├── web_search.py   # FastMCP 2.0 server — web evidence search
 │   └── fhir.py         # FastMCP 2.0 server — patient data (mock + live)
-└── agents/
-    └── orchestrator.py # top-level: ties everything together
+└── __init__.py
 ```
 
 ## Demo Patients
