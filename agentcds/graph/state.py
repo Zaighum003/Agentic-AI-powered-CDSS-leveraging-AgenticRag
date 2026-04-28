@@ -38,6 +38,8 @@ class AgentCDSState(TypedDict):
     # Annotated with operator.add so pharmacology_agent and synthesis_node
     # can both append without clobbering each other.
     drug_warnings: Annotated[list[str], operator.add]
+    reasoning_trace: Annotated[list[str], operator.add]
+    uncertainty_factors: list[str]
     next_steps: list[str]
     clarifications: list[str]
     rag_iterations_run: int

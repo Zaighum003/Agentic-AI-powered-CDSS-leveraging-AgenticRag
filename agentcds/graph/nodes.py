@@ -70,7 +70,7 @@ def form_differential(state: AgentCDSState) -> dict:
     """
     patient: Patient = state["patient"]
     print("\n" + "="*60)
-    print(f"[Graph] form_differential — patient {patient.patient_id}")
+    print(f"[Graph] Processing patient {patient.patient_id}")
     print("="*60)
 
     # ── Run specialist agents ──────────────────────────────────────
@@ -88,7 +88,7 @@ def form_differential(state: AgentCDSState) -> dict:
     enriched = "\n\n".join(filter(None, [lab_sig, rad_sig, pharma_sig]))
 
     # ── Form initial differential using enriched context ──────────
-    print("\n[Layer 2] Forming initial differential …")
+    print("\n[Layer 2] Initial differential formed …")
     prompt = DIFFERENTIAL_PROMPT.format(
         patient=patient.to_text(),
         context=enriched[:800],
@@ -107,6 +107,10 @@ def form_differential(state: AgentCDSState) -> dict:
                     icd11=item.get("icd11"),
                     urgency=item.get("urgency", "routine"),
                     workup=item.get("workup", []),
+                    supporting_factors=item.get("supporting_factors", []),
+                    opposing_factors=item.get("opposing_factors", []),
+                    missing_data=item.get("missing_data", []),
+                    confidence_components=item.get("confidence_components", {}),
                 ))
     except (json.JSONDecodeError, KeyError):
         hypotheses = [Hypothesis(label="Undetermined — workup required", confidence=0.1)]
@@ -115,6 +119,22 @@ def form_differential(state: AgentCDSState) -> dict:
     for h in sorted(hypotheses, key=lambda x: x.confidence, reverse=True):
         print(f"  {h.confidence:.0%}  {h.label}  [{h.urgency}]")
 
+    support_features = _patient_support_features(patient)
+    missing_features = _patient_missing_features(patient)
+    for h in hypotheses:
+        if not h.supporting_factors:
+            h.supporting_factors = list(support_features)
+        if not h.opposing_factors:
+            h.opposing_factors = list((patient.absent or [])[:2])
+        if not h.missing_data:
+            h.missing_data = list(missing_features)
+        if not h.confidence_components:
+            h.confidence_components = {
+                "initial_clinical_fit": round(h.confidence, 3),
+                "support_signal_count": float(len(h.supporting_factors)),
+                "missing_data_penalty": float(len(h.missing_data)) * 0.05,
+            }
+
     return {
         "hypotheses": hypotheses,
         "lab_signals": lab_sig,
@@ -122,6 +142,10 @@ def form_differential(state: AgentCDSState) -> dict:
         "pharma_signals": pharma_sig,
         "enriched_context": enriched,
         "drug_warnings": pharma_warnings,   # operator.add channel
+        "reasoning_trace": [
+            f"Formed initial differential with {len(hypotheses)} hypotheses.",
+            "Specialist agents contributed lab, radiology, and pharmacology context.",
+        ],
         "rag_iteration": 0,
         "rag_done": False,
         "knowledge_seeded": False,
@@ -214,7 +238,10 @@ def seed_knowledge(state: AgentCDSState) -> dict:
             print(f"  [Web]     error for '{h.label[:40]}': {exc}")
 
     print(f"[Layer 3] Done — {total} document(s) seeded\n")
-    return {"knowledge_seeded": True}
+    return {
+        "knowledge_seeded": True,
+        "reasoning_trace": [f"Knowledge seeding added {total} evidence document(s) to retrieval cache."],
+    }
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -234,6 +261,33 @@ New evidence retrieved:
 Update the confidence score (0.0-1.0) for each hypothesis based on
 this evidence.  Respond with ONLY a JSON object mapping label → score:
 {{"Diagnosis A": 0.65, "Diagnosis B": 0.20}}"""
+
+
+def _confidence_band(score: float) -> str:
+    if score >= 0.75:
+        return "high"
+    if score >= 0.45:
+        return "moderate"
+    return "low"
+
+
+def _patient_support_features(patient: Patient) -> list[str]:
+    features: list[str] = []
+    features.extend((patient.findings or [])[:3])
+    abnormal = [f"{lab.name} abnormal ({lab.value} {lab.unit})" for lab in patient.labs if lab.abnormal]
+    features.extend(abnormal[:2])
+    return features
+
+
+def _patient_missing_features(patient: Patient) -> list[str]:
+    missing: list[str] = []
+    if not patient.imaging:
+        missing.append("No imaging evidence available yet")
+    if not patient.hpi:
+        missing.append("Limited history of present illness detail")
+    if not patient.absent:
+        missing.append("Pertinent negatives not fully documented")
+    return missing
 
 
 def rag_node(state: AgentCDSState) -> dict:
@@ -311,6 +365,10 @@ def rag_node(state: AgentCDSState) -> dict:
                     weight=gc.utility * gc.relevance,
                     source=gc.source,
                 ))
+                if gc.support == "supports":
+                    hyp.supporting_factors.append(gc.key_finding)
+                elif gc.support == "contradicts":
+                    hyp.opposing_factors.append(gc.key_finding)
                 new_evidence_lines.append(
                     f"[{gc.support}] {gc.key_finding} (source: {gc.source})"
                 )
@@ -320,6 +378,8 @@ def rag_node(state: AgentCDSState) -> dict:
                 delta = crag.correct(gc, hyp, patient.to_text())
                 print(f"  [CRAG]     contradiction resolved  delta={delta:+.2f}")
                 hyp.adjust(delta)
+                if gc.key_finding:
+                    hyp.opposing_factors.append(f"CRAG contradiction check: {gc.key_finding}")
 
     # ── LLM confidence update ─────────────────────────────────────
     if new_evidence_lines:
@@ -350,6 +410,8 @@ def rag_node(state: AgentCDSState) -> dict:
                  if abs(h.confidence - before) > 0.001
                  else f"{h.confidence:.2f} (unchanged)")
         print(f"    {arrow}  {h.label}")
+        h.confidence_components["post_rag_confidence"] = round(h.confidence, 3)
+        h.confidence_components["rag_iteration"] = float(iteration)
 
     # Determine whether to stop the loop
     new_top_conf = max(h.confidence for h in hypotheses)
@@ -367,6 +429,9 @@ def rag_node(state: AgentCDSState) -> dict:
         "hypotheses": hypotheses,
         "rag_iteration": iteration,
         "rag_done": rag_done,
+        "reasoning_trace": [
+            f"RAG iteration {iteration} completed; top confidence is {new_top_conf:.0%} ({_confidence_band(new_top_conf)})."
+        ],
         "rag_iterations_run": iteration,
     }
 
@@ -444,6 +509,9 @@ def synthesize(state: AgentCDSState) -> dict:
     return {
         "next_steps": next_steps,
         "drug_warnings": safety_flags,   # operator.add — appended to pharma warnings
+        "reasoning_trace": [
+            f"Synthesis produced {len(next_steps)} next step(s) and {len(safety_flags)} safety flag(s)."
+        ],
     }
 
 
@@ -459,7 +527,11 @@ def clarify(state: AgentCDSState) -> dict:
     top_conf = max(h.confidence for h in hypotheses)
     if top_conf >= config.CONFIDENCE_LOW:
         print(f"[Layer 5] Confidence {top_conf:.0%} ≥ threshold — no clarifications needed")
-        return {"clarifications": []}
+        return {
+            "clarifications": [],
+            "uncertainty_factors": [],
+            "reasoning_trace": ["Confidence above low threshold; no clarification prompts required."],
+        }
 
     print(f"[Layer 5] Confidence {top_conf:.0%} below threshold — generating clarifications")
 
@@ -482,7 +554,11 @@ def clarify(state: AgentCDSState) -> dict:
         pass
 
     print(f"  [Clarify]  {len(clarifications)} question(s) generated")
-    return {"clarifications": clarifications}
+    return {
+        "clarifications": clarifications,
+        "uncertainty_factors": clarifications,
+        "reasoning_trace": [f"Generated {len(clarifications)} clarification question(s) due to low confidence."],
+    }
 
 
 def build_result(state: AgentCDSState) -> dict:
@@ -490,15 +566,23 @@ def build_result(state: AgentCDSState) -> dict:
     Layer 5 — Final assembly node.
     Packages everything into a DiagnosticResult and prints the summary.
     """
+    ordered = sorted(state["hypotheses"], key=lambda h: h.confidence, reverse=True)
+    top_conf = ordered[0].confidence if ordered else 0.0
+    top_hyp = ordered[0] if ordered else None
+    uncertainty = list(state.get("uncertainty_factors", []))
+    if top_hyp is not None:
+        uncertainty.extend(top_hyp.missing_data[:3])
+
     result = DiagnosticResult(
         patient_id=state["patient"].patient_id,
-        differential=sorted(
-            state["hypotheses"], key=lambda h: h.confidence, reverse=True
-        ),
+        differential=ordered,
         next_steps=state.get("next_steps", []),
         clarifications=state.get("clarifications", []),
         drug_warnings=state.get("drug_warnings", []),
         rag_iterations=state.get("rag_iterations_run", 0),
+        confidence_band=_confidence_band(top_conf),
+        uncertainty_factors=list(dict.fromkeys(uncertainty))[:6],
+        reasoning_trace=state.get("reasoning_trace", []),
     )
     print(result.summary())
     return {"result": result}

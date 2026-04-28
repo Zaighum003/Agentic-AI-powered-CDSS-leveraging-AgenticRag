@@ -89,6 +89,10 @@ class Hypothesis:
     urgency:    str = "routine"           # routine | urgent | emergent
     workup:     list[str] = field(default_factory=list)
     evidence:   list[Evidence] = field(default_factory=list)
+    supporting_factors: list[str] = field(default_factory=list)
+    opposing_factors: list[str] = field(default_factory=list)
+    missing_data: list[str] = field(default_factory=list)
+    confidence_components: dict[str, float] = field(default_factory=dict)
 
     def adjust(self, delta: float):
         self.confidence = max(0.0, min(1.0, self.confidence + delta))
@@ -103,6 +107,9 @@ class DiagnosticResult:
     clarifications:   list[str]           # questions for clinician if uncertain
     drug_warnings:    list[str]
     rag_iterations:   int
+    confidence_band:  str = "indeterminate"
+    uncertainty_factors: list[str] = field(default_factory=list)
+    reasoning_trace: list[str] = field(default_factory=list)
     disclaimer:       str = (
         "AI-generated decision support — must be reviewed by a licensed clinician "
         "before informing patient care."
@@ -113,15 +120,24 @@ class DiagnosticResult:
         lines.append("\nDIFFERENTIAL DIAGNOSIS:")
         for i, h in enumerate(self.differential[:5], 1):
             lines.append(f"  {i}. {h.label:<40} {h.confidence:.0%}  [{h.urgency}]  ICD-11: {h.icd11 or 'N/A'}")
+        lines.append(f"\nCONFIDENCE BAND: {self.confidence_band}")
         if self.next_steps:
             lines.append("\nNEXT STEPS:")
             for s in self.next_steps:
                 lines.append(f"  \u2022 {s}")
+        if self.uncertainty_factors:
+            lines.append("\nUNCERTAINTY FACTORS:")
+            for u in self.uncertainty_factors[:5]:
+                lines.append(f"  ? {u}")
         if self.drug_warnings:
             lines.append("\nDRUG WARNINGS:")
             for w in self.drug_warnings:
                 for wline in str(w).splitlines():
                     lines.append(f"  \u26a0 {wline}")
+        if self.reasoning_trace:
+            lines.append("\nREASONING TRACE:")
+            for r in self.reasoning_trace[:8]:
+                lines.append(f"  - {r}")
         if self.clarifications:
             lines.append("\nCLARIFICATION NEEDED:")
             for q in self.clarifications:

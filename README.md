@@ -28,6 +28,32 @@ LLM_MODEL=gpt-4o-mini
 # Optional: OPENAI_BASE_URL=https://<your-compatible-endpoint>/v1
 ```
 
+## Technologies Used
+
+The project is built with these main tools and technologies:
+
+- Python 3.10+
+- LangGraph for the agent workflow
+- FastAPI for the web API and WebSocket endpoint
+- Uvicorn as the ASGI server
+- Pydantic for data models and validation
+- FastMCP for MCP tool servers and local tool calls
+- ChromaDB for the vector store and retrieval cache
+- Transformers and Torch for local LLM execution
+- OpenAI API support as an optional LLM backend
+- httpx for HTTP-based integrations
+- python-dotenv for environment and config loading
+- ddgs for web search
+- Mermaid for graph visualization
+- unittest and pytest-style tests for validation
+
+Domain-specific integrations:
+
+- PubMed
+- RxNorm
+- FHIR/mock patient data
+- Web search
+
 ## Run
 
 ```bash

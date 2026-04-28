@@ -6,22 +6,49 @@
   <title>AgentCDS Web Demo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Material+Symbols+Outlined:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Material+Symbols+Outlined:wght@300;400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/styles.css" />
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">AgentCDS</div>
-    <div class="session-pill" id="sessionStatus">Idle</div>
+    <div class="brand-wrap">
+      <img class="brand-logo" src="/assets/logo.png" alt="AgentCDS logo" />
+      <div class="brand-copy">
+        <div class="brand">AgentCDS</div>
+        <div class="brand-sub">Agentic Clinical Decision Support</div>
+      </div>
+    </div>
+    <div class="session-pill" id="sessionStatus">
+      <span class="material-symbols-outlined">monitor_heart</span>
+      <span>Idle</span>
+    </div>
   </header>
 
   <div class="app-shell">
     <aside class="sidebar">
-      <button class="new-run" id="newRunBtn">New Diagnosis</button>
+      <button class="new-run" id="newRunBtn">
+        <span class="material-symbols-outlined">add_circle</span>
+        <span>New Diagnosis</span>
+      </button>
+
+      <article class="hero-card">
+        <h3>Clinical Signal</h3>
+        <p>Multi-agent reasoning with HyDE, Self-RAG, and CRAG over patient context.</p>
+      </article>
+
       <nav>
-        <button class="nav-item active" data-view="intake">Patient Intake</button>
-        <button class="nav-item" data-view="running">Diagnosis Running</button>
-        <button class="nav-item" data-view="result">Results</button>
+        <button class="nav-item active" data-view="intake">
+          <span class="material-symbols-outlined">person_search</span>
+          <span>Patient Intake</span>
+        </button>
+        <button class="nav-item" data-view="running">
+          <span class="material-symbols-outlined">neurology</span>
+          <span>Diagnosis Running</span>
+        </button>
+        <button class="nav-item" data-view="result">
+          <span class="material-symbols-outlined">query_stats</span>
+          <span>Results</span>
+        </button>
       </nav>
       <div class="sidebar-foot">Agentic Clinical Decision Support</div>
     </aside>
@@ -30,7 +57,7 @@
       <section class="view active" id="view-intake">
         <div class="grid intake-grid">
           <article class="panel">
-            <h2>Load Demo Patient</h2>
+            <h2><span class="material-symbols-outlined">dataset</span> Load Demo Patient</h2>
             <div class="row">
               <select id="demoSelect"></select>
               <button id="loadDemoBtn">Load</button>
@@ -39,7 +66,7 @@
           </article>
 
           <article class="panel">
-            <h2>Paste Patient JSON</h2>
+            <h2><span class="material-symbols-outlined">data_object</span> Paste Patient JSON</h2>
             <textarea id="patientJson" placeholder='{"patient_id":"CUSTOM-001", "age":54, "sex":"M", "complaint":"..."}'></textarea>
             <div class="row">
               <button id="parseJsonBtn" class="ghost">Parse JSON</button>
@@ -57,7 +84,7 @@
       <section class="view" id="view-running">
         <article class="panel progress-wrap">
           <div class="row split">
-            <h2>Diagnosis Running</h2>
+            <h2><span class="material-symbols-outlined">monitoring</span> Diagnosis Running</h2>
             <strong id="progressPct">0%</strong>
           </div>
           <div class="bar"><div id="progressBar"></div></div>
@@ -66,11 +93,11 @@
 
         <div class="grid running-grid">
           <article class="panel">
-            <h2>System Operations</h2>
+            <h2><span class="material-symbols-outlined">checklist</span> System Operations</h2>
             <ul id="opsChecklist" class="checklist"></ul>
           </article>
           <article class="panel">
-            <h2>Live Agent Log</h2>
+            <h2><span class="material-symbols-outlined">terminal</span> Live Agent Log</h2>
             <div id="liveLog" class="logbox"></div>
           </article>
         </div>
@@ -80,11 +107,11 @@
         <div class="grid result-grid">
           <article class="panel" id="resultSummary"></article>
           <article class="panel">
-            <h2>Differential Diagnosis</h2>
+            <h2><span class="material-symbols-outlined">stethoscope</span> Differential Diagnosis</h2>
             <div id="differentialList" class="stack"></div>
           </article>
           <article class="panel">
-            <h2>Next Steps</h2>
+            <h2><span class="material-symbols-outlined">playlist_add_check</span> Next Steps</h2>
             <ol id="nextSteps"></ol>
             <h3>Drug Warnings</h3>
             <ul id="warnings" class="warnings"></ul>
@@ -92,7 +119,7 @@
             <ul id="clarifications"></ul>
           </article>
           <article class="panel wide">
-            <h2>Agent Engine Log</h2>
+            <h2><span class="material-symbols-outlined">lab_profile</span> Agent Engine Log</h2>
             <div id="resultLog" class="logbox"></div>
           </article>
         </div>
@@ -100,6 +127,6 @@
     </main>
   </div>
 
-  <script src="/assets/app.js"></script>
+  <script src="/assets/app.js?v=2"></script>
 </body>
 </html>

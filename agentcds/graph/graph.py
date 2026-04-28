@@ -146,6 +146,8 @@ def diagnose(patient: Patient) -> DiagnosticResult:
         "rag_iteration": 0,
         "rag_done": False,
         "drug_warnings": [],
+        "reasoning_trace": [],
+        "uncertainty_factors": [],
         "next_steps": [],
         "clarifications": [],
         "rag_iterations_run": 0,

@@ -5,10 +5,10 @@ const state = {
   ws: null,
   checklist: [
     "Patient loaded",
-    "Initial differential formed",
     "Lab agent complete",
     "Radiology agent complete",
     "Pharmacology agent complete",
+    "Initial differential formed",
     "Knowledge seeding",
     "RAG iterations",
     "Synthesis and output",
@@ -32,7 +32,9 @@ function setView(name) {
 }
 
 function setSessionStatus(text) {
-  document.getElementById("sessionStatus").textContent = text;
+  const host = document.getElementById("sessionStatus");
+  const icon = text === "Running" ? "neurology" : text === "Completed" ? "verified" : text === "Error" ? "warning" : "monitor_heart";
+  host.innerHTML = `<span class="material-symbols-outlined">${icon}</span><span>${escapeHtml(text)}</span>`;
 }
 
 function appendLog(message) {
@@ -62,10 +64,10 @@ function updateProgress(progress, phase) {
 
   const map = [
     [10, "Patient loaded"],
-    [15, "Initial differential formed"],
     [20, "Lab agent complete"],
     [28, "Radiology agent complete"],
     [36, "Pharmacology agent complete"],
+    [40, "Initial differential formed"],
     [50, "Knowledge seeding"],
     [65, "RAG iterations"],
     [94, "Synthesis and output"],
@@ -90,7 +92,7 @@ function renderChecklist() {
     .map((item) => {
       const status = state.checklistStatus[item] || "pending";
       const label = status === "done" ? "Done" : status === "active" ? "Running" : "Pending";
-      return `<li><span>${item}</span><span class="status-${status}">${label}</span></li>`;
+      return `<li><span>${escapeHtml(item)}</span><span class="status-${status}">${label}</span></li>`;
     })
     .join("");
 }
@@ -119,11 +121,24 @@ function renderPatientCard() {
 
 function renderResult(result) {
   const top = result.differential[0];
+  const uncertainty = (result.uncertainty_factors || [])
+    .slice(0, 4)
+    .map((u) => `<li>${escapeHtml(u)}</li>`)
+    .join("");
+  const trace = (result.reasoning_trace || [])
+    .slice(0, 6)
+    .map((r) => `<li>${escapeHtml(r)}</li>`)
+    .join("");
   document.getElementById("resultSummary").innerHTML = `
     <h2>Diagnostic Summary</h2>
     <p><strong>Patient:</strong> ${escapeHtml(result.patient_id)}</p>
     <p><strong>Top Diagnosis:</strong> ${escapeHtml(top.label)} (${Math.round(top.confidence * 100)}%)</p>
+    <p><strong>Confidence Band:</strong> ${escapeHtml(result.confidence_band || "indeterminate")}</p>
     <p><strong>RAG Iterations:</strong> ${result.rag_iterations}</p>
+    <h3>Uncertainty Drivers</h3>
+    <ul>${uncertainty || "<li>None</li>"}</ul>
+    <h3>Reasoning Timeline</h3>
+    <ul>${trace || "<li>No trace available</li>"}</ul>
     <p class="muted">${escapeHtml(result.disclaimer)}</p>
   `;
 
@@ -135,6 +150,21 @@ function renderResult(result) {
         .slice(0, 4)
         .map((ev) => `<li>${escapeHtml(ev.support)}: ${escapeHtml(ev.text)} <span class='muted'>(${escapeHtml(ev.source)})</span></li>`)
         .join("");
+      const supportRows = (dx.supporting_factors || [])
+        .slice(0, 3)
+        .map((s) => `<li>${escapeHtml(s)}</li>`)
+        .join("");
+      const opposeRows = (dx.opposing_factors || [])
+        .slice(0, 3)
+        .map((s) => `<li>${escapeHtml(s)}</li>`)
+        .join("");
+      const missingRows = (dx.missing_data || [])
+        .slice(0, 3)
+        .map((s) => `<li>${escapeHtml(s)}</li>`)
+        .join("");
+      const componentRows = Object.entries(dx.confidence_components || {})
+        .map(([k, v]) => `<li>${escapeHtml(k)}: ${typeof v === "number" ? v.toFixed(2) : escapeHtml(String(v))}</li>`)
+        .join("");
 
       return `
         <article class="dx-card">
@@ -145,6 +175,10 @@ function renderResult(result) {
           <div class="dx-meta">ICD-11: ${escapeHtml(dx.icd11 || "N/A")} · Urgency: ${escapeHtml(dx.urgency || "routine")}</div>
           <div class="dx-bar"><div class="dx-fill ${cls}" style="width:${pct}%"></div></div>
           ${evidenceRows ? `<details><summary>Evidence</summary><ul>${evidenceRows}</ul></details>` : ""}
+          ${supportRows ? `<details><summary>Why it fits</summary><ul>${supportRows}</ul></details>` : ""}
+          ${opposeRows ? `<details><summary>Why it may not fit</summary><ul>${opposeRows}</ul></details>` : ""}
+          ${missingRows ? `<details><summary>Missing data</summary><ul>${missingRows}</ul></details>` : ""}
+          ${componentRows ? `<details><summary>Confidence components</summary><ul>${componentRows}</ul></details>` : ""}
         </article>
       `;
     })
@@ -228,9 +262,6 @@ function startDiagnosis() {
     const message = JSON.parse(event.data);
     if (message.type === "status") {
       updateProgress(message.progress ?? 0, message.phase || message.message || "Running");
-      if (message.message) {
-        appendLog(message.message);
-      }
       return;
     }
     if (message.type === "log") {

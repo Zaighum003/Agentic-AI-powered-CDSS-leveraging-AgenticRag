@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -75,6 +75,9 @@ def _result_to_json(result: DiagnosticResult) -> dict[str, Any]:
     return {
         "patient_id": result.patient_id,
         "rag_iterations": result.rag_iterations,
+        "confidence_band": result.confidence_band,
+        "uncertainty_factors": result.uncertainty_factors,
+        "reasoning_trace": result.reasoning_trace,
         "next_steps": result.next_steps,
         "clarifications": result.clarifications,
         "drug_warnings": result.drug_warnings,
@@ -87,6 +90,10 @@ def _result_to_json(result: DiagnosticResult) -> dict[str, Any]:
                 "urgency": h.urgency,
                 "workup": h.workup,
                 "evidence": [asdict(e) for e in h.evidence],
+                "supporting_factors": h.supporting_factors,
+                "opposing_factors": h.opposing_factors,
+                "missing_data": h.missing_data,
+                "confidence_components": h.confidence_components,
             }
             for h in result.differential
         ],
@@ -138,7 +145,7 @@ def _resolve_patient(payload: DiagnoseRequest) -> Patient:
 
 def _progress_from_log(log_line: str) -> tuple[int, str] | None:
     mapping = [
-        ("form_differential", (10, "Initial differential")),
+           ("Initial differential formed", (40, "Initial differential formed")),
         ("Lab Agent", (20, "Lab agent complete")),
         ("Radiology", (28, "Radiology agent complete")),
         ("Pharma", (36, "Pharmacology agent complete")),
@@ -172,6 +179,11 @@ app.mount("/assets", StaticFiles(directory=str(_STATIC_DIR)), name="assets")
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(_STATIC_DIR / "index.html")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> Response:
+    return Response(status_code=204)
 
 
 @app.get("/api/health")
