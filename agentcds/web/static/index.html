@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Material+Symbols+Outlined:wght@300;400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/styles.css" />
+  <link rel="stylesheet" href="/assets/styles.css?v=3" />
 </head>
 <body>
   <header class="topbar">
@@ -57,12 +57,12 @@
       <section class="view active" id="view-intake">
         <div class="grid intake-grid">
           <article class="panel">
-            <h2><span class="material-symbols-outlined">dataset</span> Load Demo Patient</h2>
+            <h2><span class="material-symbols-outlined">dataset</span> Load Stored Patient</h2>
             <div class="row">
               <select id="demoSelect"></select>
               <button id="loadDemoBtn">Load</button>
             </div>
-            <p class="muted">Built-in FHIR mock cases from the backend.</p>
+            <p class="muted">Built-in FHIR mock cases + any manually saved patients.</p>
           </article>
 
           <article class="panel">
@@ -75,9 +75,152 @@
           </article>
         </div>
 
+        <!-- ── Enter Patient Manually button ── -->
+        <div class="manual-toggle-row">
+          <button class="manual-toggle-btn" id="manualToggleBtn">
+            <span class="material-symbols-outlined">person_add</span>
+            <span>Enter Patient Manually</span>
+            <span class="material-symbols-outlined toggle-chevron" id="manualChevron">expand_more</span>
+          </button>
+        </div>
+
+        <!-- ── Manual Entry Wizard (hidden by default) ── -->
+        <div class="manual-wizard" id="manualWizard" style="display:none;">
+          <div class="wizard-steps">
+            <div class="wstep active" data-step="1"><span class="wstep-num">1</span><span>Demographics</span></div>
+            <div class="wstep-line"></div>
+            <div class="wstep" data-step="2"><span class="wstep-num">2</span><span>History</span></div>
+            <div class="wstep-line"></div>
+            <div class="wstep" data-step="3"><span class="wstep-num">3</span><span>Vitals</span></div>
+            <div class="wstep-line"></div>
+            <div class="wstep" data-step="4"><span class="wstep-num">4</span><span>Labs</span></div>
+            <div class="wstep-line"></div>
+            <div class="wstep" data-step="5"><span class="wstep-num">5</span><span>Findings</span></div>
+          </div>
+
+          <!-- Step 1 -->
+          <div class="wizard-page active" id="wpage-1">
+            <article class="panel">
+              <h2><span class="material-symbols-outlined">badge</span> Step 1 — Demographics</h2>
+              <div class="form-grid-2">
+                <div class="field-group">
+                  <label for="mf_patient_id">Patient ID <span class="req">*</span></label>
+                  <input type="text" id="mf_patient_id" placeholder="e.g. PT-2024-001" />
+                </div>
+                <div class="field-group">
+                  <label for="mf_age">Age <span class="req">*</span></label>
+                  <input type="number" id="mf_age" min="0" max="150" placeholder="e.g. 45" />
+                </div>
+                <div class="field-group">
+                  <label for="mf_sex">Sex <span class="req">*</span></label>
+                  <select id="mf_sex"><option value="M">Male</option><option value="F">Female</option><option value="Other">Other</option></select>
+                </div>
+                <div class="field-group full-width">
+                  <label for="mf_complaint">Chief Complaint <span class="req">*</span></label>
+                  <input type="text" id="mf_complaint" placeholder="e.g. Fever with fatigue for 3 days" />
+                </div>
+              </div>
+              <div class="wiz-nav-row"><span></span><button class="primary" id="wNext1">Next &#8594;</button></div>
+            </article>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="wizard-page" id="wpage-2">
+            <article class="panel">
+              <h2><span class="material-symbols-outlined">history_edu</span> Step 2 — Medical History</h2>
+              <div class="form-grid-1">
+                <div class="field-group">
+                  <label for="mf_hpi">History of Present Illness (HPI)</label>
+                  <textarea id="mf_hpi" placeholder="Describe illness progression, timeline, severity..."></textarea>
+                </div>
+                <div class="field-group">
+                  <label for="mf_pmh">Past Medical History <span class="field-hint">(comma-separated)</span></label>
+                  <input type="text" id="mf_pmh" placeholder="e.g. Diabetes, Hypertension" />
+                </div>
+                <div class="field-group">
+                  <label for="mf_medications">Current Medications <span class="field-hint">(comma-separated)</span></label>
+                  <input type="text" id="mf_medications" placeholder="e.g. Metformin 500mg, Lisinopril 10mg" />
+                </div>
+                <div class="field-group">
+                  <label for="mf_allergies">Allergies <span class="field-hint">(comma-separated)</span></label>
+                  <input type="text" id="mf_allergies" placeholder="e.g. Penicillin, Sulfa drugs" />
+                </div>
+              </div>
+              <div class="wiz-nav-row">
+                <button class="ghost" id="wBack2">&#8592; Back</button>
+                <button class="primary" id="wNext2">Next &#8594;</button>
+              </div>
+            </article>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="wizard-page" id="wpage-3">
+            <article class="panel">
+              <h2><span class="material-symbols-outlined">monitor_heart</span> Step 3 — Vitals</h2>
+              <div class="form-grid-3">
+                <div class="field-group"><label for="mf_bp">Blood Pressure</label><input type="text" id="mf_bp" placeholder="e.g. 120/80" /></div>
+                <div class="field-group"><label for="mf_hr">Heart Rate (bpm)</label><input type="text" id="mf_hr" placeholder="e.g. 78" /></div>
+                <div class="field-group"><label for="mf_temp">Temperature</label><input type="text" id="mf_temp" placeholder="e.g. 37.2C" /></div>
+                <div class="field-group"><label for="mf_spo2">SpO&#8322;</label><input type="text" id="mf_spo2" placeholder="e.g. 97%" /></div>
+                <div class="field-group"><label for="mf_rr">Resp. Rate</label><input type="text" id="mf_rr" placeholder="e.g. 18" /></div>
+                <div class="field-group"><label for="mf_weight">Weight</label><input type="text" id="mf_weight" placeholder="e.g. 72 kg" /></div>
+                <div class="field-group"><label for="mf_height">Height</label><input type="text" id="mf_height" placeholder="e.g. 175 cm" /></div>
+              </div>
+              <div class="wiz-nav-row">
+                <button class="ghost" id="wBack3">&#8592; Back</button>
+                <button class="primary" id="wNext3">Next &#8594;</button>
+              </div>
+            </article>
+          </div>
+
+          <!-- Step 4 -->
+          <div class="wizard-page" id="wpage-4">
+            <article class="panel">
+              <h2><span class="material-symbols-outlined">biotech</span> Step 4 — Lab Results</h2>
+              <p class="muted" style="margin:0 0 12px;">Add one lab per row. Name and Value are required; ref range is optional.</p>
+              <div id="labRowsContainer"></div>
+              <button class="ghost add-lab-btn" id="addLabRowBtn">
+                <span class="material-symbols-outlined">add</span> Add Lab Row
+              </button>
+              <div class="wiz-nav-row" style="margin-top:16px;">
+                <button class="ghost" id="wBack4">&#8592; Back</button>
+                <button class="primary" id="wNext4">Next &#8594;</button>
+              </div>
+            </article>
+          </div>
+
+          <!-- Step 5 -->
+          <div class="wizard-page" id="wpage-5">
+            <article class="panel">
+              <h2><span class="material-symbols-outlined">search_insights</span> Step 5 — Findings &amp; Imaging</h2>
+              <div class="form-grid-1">
+                <div class="field-group">
+                  <label for="mf_findings">Present / Positive Findings <span class="field-hint">(comma-separated)</span></label>
+                  <input type="text" id="mf_findings" placeholder="e.g. Pallor, Petechiae, Tachycardia" />
+                </div>
+                <div class="field-group">
+                  <label for="mf_absent">Absent / Negative Findings <span class="field-hint">(comma-separated)</span></label>
+                  <input type="text" id="mf_absent" placeholder="e.g. No fever, No lymphadenopathy" />
+                </div>
+                <div class="field-group">
+                  <label for="mf_imaging">Imaging Results <span class="field-hint">(comma-separated)</span></label>
+                  <input type="text" id="mf_imaging" placeholder="e.g. CXR: Normal, ECG: Sinus rhythm" />
+                </div>
+              </div>
+              <div id="manualSaveStatus" class="save-status" style="display:none;"></div>
+              <div class="wiz-nav-row">
+                <button class="ghost" id="wBack5">&#8592; Back</button>
+                <button class="primary save-btn" id="wSaveBtn">
+                  <span class="material-symbols-outlined">save</span> Save &amp; Load Patient
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+
         <article class="panel patient-card" id="patientCard">
           <h2>Awaiting Patient Data</h2>
-          <p class="muted">Load a demo patient or parse JSON to continue.</p>
+          <p class="muted">Load a stored patient, paste JSON, or enter one manually above.</p>
         </article>
       </section>
 
@@ -127,6 +270,6 @@
     </main>
   </div>
 
-  <script src="/assets/app.js?v=2"></script>
+  <script src="/assets/app.js?v=3"></script>
 </body>
 </html>

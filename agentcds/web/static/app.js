@@ -307,6 +307,8 @@ function bindEvents() {
 
 async function init() {
   bindEvents();
+  bindWizardEvents();
+  addLabRow();          // seed one empty lab row
   renderChecklist();
   await fetchPatients();
   const select = document.getElementById("demoSelect");
@@ -316,3 +318,202 @@ async function init() {
 }
 
 init();
+
+// ══════════════════════════════════════════
+//  Manual Patient Entry Wizard
+// ══════════════════════════════════════════
+
+let _wizStep = 1;
+const _TOTAL_STEPS = 5;
+
+function setWizardStep(step) {
+  for (let i = 1; i <= _TOTAL_STEPS; i++) {
+    const p = document.getElementById(`wpage-${i}`);
+    if (p) p.classList.remove("active");
+  }
+  const target = document.getElementById(`wpage-${step}`);
+  if (target) target.classList.add("active");
+  document.querySelectorAll(".wstep").forEach((el) => {
+    const s = parseInt(el.dataset.step);
+    el.classList.remove("active", "done");
+    if (s === step) el.classList.add("active");
+    else if (s < step) el.classList.add("done");
+  });
+  _wizStep = step;
+}
+
+function addLabRow() {
+  const container = document.getElementById("labRowsContainer");
+  const row = document.createElement("div");
+  row.className = "lab-row";
+  row.innerHTML = `
+    <div class="lab-row-inner">
+      <label>Test Name *</label>
+      <input type="text" class="lab-name" placeholder="e.g. Hemoglobin" />
+    </div>
+    <div class="lab-row-inner">
+      <label>Value *</label>
+      <input type="number" step="any" class="lab-value" placeholder="e.g. 8.2" />
+    </div>
+    <div class="lab-row-inner">
+      <label>Unit</label>
+      <input type="text" class="lab-unit" placeholder="e.g. g/dL" />
+    </div>
+    <div class="lab-row-inner">
+      <label>Ref Low</label>
+      <input type="number" step="any" class="lab-ref-low" placeholder="e.g. 13.5" />
+    </div>
+    <div class="lab-row-inner">
+      <label>Ref High</label>
+      <input type="number" step="any" class="lab-ref-high" placeholder="e.g. 17.5" />
+    </div>
+    <div class="lab-check-wrap">
+      <label><input type="checkbox" class="lab-abnormal" /> Abnormal</label>
+      <button class="lab-del-btn" title="Remove">
+        <span class="material-symbols-outlined">delete</span>
+      </button>
+    </div>
+  `;
+  row.querySelector(".lab-del-btn").addEventListener("click", () => row.remove());
+  container.appendChild(row);
+}
+
+function collectLabs() {
+  const labs = [];
+  document.querySelectorAll("#labRowsContainer .lab-row").forEach((row) => {
+    const name  = row.querySelector(".lab-name").value.trim();
+    const value = parseFloat(row.querySelector(".lab-value").value);
+    if (!name || isNaN(value)) return;
+    const refLow  = row.querySelector(".lab-ref-low").value;
+    const refHigh = row.querySelector(".lab-ref-high").value;
+    labs.push({
+      name,
+      value,
+      unit:      row.querySelector(".lab-unit").value.trim(),
+      abnormal:  row.querySelector(".lab-abnormal").checked,
+      ref_low:   refLow  !== "" ? parseFloat(refLow)  : null,
+      ref_high:  refHigh !== "" ? parseFloat(refHigh) : null,
+    });
+  });
+  return labs;
+}
+
+function splitComma(str) {
+  return str.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function buildVitals() {
+  const v = {};
+  const map = [
+    ["mf_bp",     "BP"],   ["mf_hr",   "HR"],   ["mf_temp",   "Temp"],
+    ["mf_spo2",   "SpO2"], ["mf_rr",   "RR"],   ["mf_weight", "Weight"],
+    ["mf_height", "Height"],
+  ];
+  map.forEach(([id, key]) => {
+    const val = document.getElementById(id).value.trim();
+    if (val) v[key] = val;
+  });
+  return v;
+}
+
+async function saveManualPatient() {
+  const statusEl = document.getElementById("manualSaveStatus");
+  const btn      = document.getElementById("wSaveBtn");
+
+  const patient_id = document.getElementById("mf_patient_id").value.trim();
+  const age        = parseInt(document.getElementById("mf_age").value);
+  const sex        = document.getElementById("mf_sex").value;
+  const complaint  = document.getElementById("mf_complaint").value.trim();
+
+  if (!patient_id || !complaint || isNaN(age)) {
+    statusEl.className   = "save-status err";
+    statusEl.textContent = "❌ Patient ID, Age, and Chief Complaint are required.";
+    statusEl.style.display = "block";
+    return;
+  }
+
+  const payload = {
+    patient_id, age, sex, complaint,
+    hpi:         document.getElementById("mf_hpi").value.trim(),
+    pmh:         splitComma(document.getElementById("mf_pmh").value),
+    medications: splitComma(document.getElementById("mf_medications").value),
+    allergies:   splitComma(document.getElementById("mf_allergies").value),
+    vitals:      buildVitals(),
+    labs:        collectLabs(),
+    findings:    splitComma(document.getElementById("mf_findings").value),
+    absent:      splitComma(document.getElementById("mf_absent").value),
+    imaging:     splitComma(document.getElementById("mf_imaging").value),
+  };
+
+  btn.disabled    = true;
+  btn.textContent = "Saving…";
+  statusEl.style.display = "none";
+
+  try {
+    const res = await fetch("/api/patients", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Server error");
+    }
+    const data = await res.json();
+
+    await fetchPatients();          // refresh dropdown so the new patient appears
+    await loadPatient(data.patient_id);  // load it into state
+
+    statusEl.className   = "save-status ok";
+    statusEl.textContent = `✅ Patient ${data.patient_id} saved and loaded! Click "Run Diagnosis" to continue.`;
+    statusEl.style.display = "block";
+
+    // Auto-collapse wizard after 2 s
+    setTimeout(() => {
+      document.getElementById("manualWizard").style.display = "none";
+      document.getElementById("manualChevron").classList.remove("open");
+    }, 2000);
+  } catch (err) {
+    statusEl.className   = "save-status err";
+    statusEl.textContent = `❌ ${err.message}`;
+    statusEl.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined">save</span> Save &amp; Load Patient';
+  }
+}
+
+function bindWizardEvents() {
+  // Toggle wizard open / closed
+  document.getElementById("manualToggleBtn").addEventListener("click", () => {
+    const wizard  = document.getElementById("manualWizard");
+    const chevron = document.getElementById("manualChevron");
+    const opening = wizard.style.display === "none";
+    wizard.style.display = opening ? "block" : "none";
+    chevron.classList.toggle("open", opening);
+    if (opening) setWizardStep(1);
+  });
+
+  // Step navigation
+  document.getElementById("wNext1").addEventListener("click", () => {
+    if (!document.getElementById("mf_patient_id").value.trim() ||
+        !document.getElementById("mf_complaint").value.trim() ||
+        !document.getElementById("mf_age").value) {
+      alert("Patient ID, Age, and Chief Complaint are required.");
+      return;
+    }
+    setWizardStep(2);
+  });
+  document.getElementById("wBack2").addEventListener("click", () => setWizardStep(1));
+  document.getElementById("wNext2").addEventListener("click", () => setWizardStep(3));
+  document.getElementById("wBack3").addEventListener("click", () => setWizardStep(2));
+  document.getElementById("wNext3").addEventListener("click", () => setWizardStep(4));
+  document.getElementById("wBack4").addEventListener("click", () => setWizardStep(3));
+  document.getElementById("wNext4").addEventListener("click", () => setWizardStep(5));
+  document.getElementById("wBack5").addEventListener("click", () => setWizardStep(4));
+  document.getElementById("wSaveBtn").addEventListener("click", saveManualPatient);
+
+  // Add lab row
+  document.getElementById("addLabRowBtn").addEventListener("click", addLabRow);
+}
+

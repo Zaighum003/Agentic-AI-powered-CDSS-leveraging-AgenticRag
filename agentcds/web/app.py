@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from agentcds.mcp import fhir as _fhir_module
 
 from agentcds.graph import diagnose
 from agentcds.mcp.fhir import MOCK_PATIENTS
@@ -202,6 +203,15 @@ async def list_patients() -> list[dict[str, Any]]:
         }
         for pid, p in MOCK_PATIENTS.items()
     ]
+
+
+@app.post("/api/patients")
+async def save_patient(payload: dict[str, Any]) -> dict[str, Any]:
+    """Save a manually-entered patient into the in-memory store."""
+    patient = _coerce_patient(payload)
+    MOCK_PATIENTS[patient.patient_id] = patient
+    _fhir_module.MOCK_PATIENTS[patient.patient_id] = patient
+    return {"status": "saved", "patient_id": patient.patient_id}
 
 
 @app.get("/api/patients/{patient_id}")
