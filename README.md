@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo_cdss.jpg" alt="Project Logo" width="200">
+  <img src="logo.png" alt="Project Logo" width="200">
 </p>
 
 # AgentCDS 
@@ -136,5 +136,5 @@ python -m agentcds.mcp.fhir      # port 8003
 | `PUBMED_KEY` | optional | NCBI key (raises rate limit) |
 
 <p align="center">
-  <img src="logo_cdss.jpg" alt="Project Logo" width="200">
+  <img src="logo.png" alt="Project Logo" width="200">
 </p>
