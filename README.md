@@ -7,6 +7,12 @@
 Agentic Clinical Decision Support using HyDE + Self-RAG + CRAG
 with FastMCP 2.0 clinical knowledge integrations.
 
+<h2>Workflow</h2>
+
+<p align="center">
+  <img src="./Workflow.png" alt="Workflow" width="800"/>
+</p>
+
 ## Setup
 
 ```bash
