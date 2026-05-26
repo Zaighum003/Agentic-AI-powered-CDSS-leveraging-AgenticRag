@@ -5,7 +5,7 @@
 # AgentCDS 
 
 Agentic Clinical Decision Support using HyDE + Self-RAG + CRAG
-with FastMCP 2.0 clinical knowledge integrations.
+with custom built FastMCP MCP servers .
 
 <h2>Workflow</h2>
 
